@@ -2,52 +2,70 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>26-2 인하대 전기전자공학부 시간표</title>
     <style>
         * { box-sizing: border-box; font-family: 'Malgun Gothic', sans-serif; }
         body { display: flex; margin: 0; padding: 20px; background-color: #f9f9f9; height: 100vh; overflow: hidden; }
         
         /* 왼쪽 과목 목록 구역 */
-        #sidebar { width: 400px; background: white; border-right: 1px solid #ddd; padding: 15px; display: flex; flex-direction: column; height: 100%; box-shadow: 2px 0 5px rgba(0,0,0,0.05); }
-        h2 { margin-top: 0; color: #c62917; font-size: 20px; border-bottom: 2px solid #c62917; padding-bottom: 10px; }
-        #search { padding: 10px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 4px; width: 100%; }
+        #sidebar { width: 350px; background: white; border-right: 1px solid #ddd; padding: 15px; display: flex; flex-direction: column; height: 100%; box-shadow: 2px 0 5px rgba(0,0,0,0.05); z-index: 20; }
+        h2 { margin-top: 0; color: #c62917; font-size: 18px; border-bottom: 2px solid #c62917; padding-bottom: 10px; }
+        #search { padding: 12px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 4px; width: 100%; font-size: 14px; }
         
         /* 학년 필터 스타일 */
-        #grade-filter-container { margin-bottom: 15px; display: flex; gap: 12px; flex-wrap: wrap; padding: 2px; }
-        #grade-filter-container label { font-size: 13px; color: #444; cursor: pointer; display: flex; align-items: center; gap: 4px; user-select: none; }
-        #grade-filter-container input[type="checkbox"] { cursor: pointer; }
+        #grade-filter-container { margin-bottom: 15px; display: flex; gap: 10px; flex-wrap: wrap; padding: 2px; }
+        #grade-filter-container label { font-size: 13px; color: #444; cursor: pointer; display: flex; align-items: center; gap: 4px; user-select: none; padding: 4px 0; }
+        #grade-filter-container input[type="checkbox"] { cursor: pointer; transform: scale(1.2); }
 
         #course-list { flex: 1; overflow-y: auto; }
-        .course-item { padding: 12px; border-bottom: 1px solid #eee; cursor: pointer; transition: background 0.2s; }
+        .course-item { padding: 15px 12px; border-bottom: 1px solid #eee; cursor: pointer; transition: background 0.2s; }
         .course-item:hover { background-color: #f5f5f5; }
         .course-item.selected { background-color: #ffeaea; border-left: 4px solid #c62917; }
         .course-id { font-size: 12px; color: #888; }
-        .course-name { font-weight: bold; font-size: 15px; color: #333; margin: 3px 0; }
+        .course-name { font-weight: bold; font-size: 15px; color: #333; margin: 4px 0; }
         .course-info { font-size: 13px; color: #565656; }
         
         /* 오른쪽 시간표 구역 */
-        #timetable-container { flex: 1; padding: 0 20px; display: flex; flex-direction: column; height: 100%; overflow-y: auto; }
-        #timetable { display: grid; grid-template-columns: 60px repeat(5, 1fr); border-top: 1px solid #ddd; border-left: 1px solid #ddd; background: white; position: relative; }
+        #timetable-container { flex: 1; padding: 0 20px; display: flex; flex-direction: column; height: 100%; overflow-y: auto; overflow-x: auto; }
+        /* 모바일 스크롤 시 시간표 형태 유지를 위한 최소 너비 설정 */
+        #timetable-wrapper { min-width: 500px; position: relative; margin-top: 10px; }
+        #timetable { display: grid; grid-template-columns: 50px repeat(5, 1fr); border-top: 1px solid #ddd; border-left: 1px solid #ddd; background: white; position: relative; }
+        
         .cell { border-right: 1px solid #ddd; border-bottom: 1px solid #ddd; min-height: 40px; display: flex; align-items: center; justify-content: center; font-size: 12px; color: #666; }
         .header-cell { background-color: #f1f1f1; font-weight: bold; color: #333; height: 40px; }
         .time-cell { background-color: #f9f9f9; font-weight: bold; font-size: 11px; }
         
         /* 시간표 위에 배치되는 절대 위치 카드 */
-        .schedule-card { position: absolute; background-color: rgba(198, 41, 23, 0.85); color: white; padding: 5px; font-size: 12px; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display: flex; flex-direction: column; justify-content: space-between; overflow: hidden; pointer-events: auto; z-index: 10; }
-        .schedule-card .delete-btn { align-self: flex-end; background: none; border: none; color: white; cursor: pointer; font-weight: bold; font-size: 11px; padding: 0 2px; }
+        .schedule-card { position: absolute; background-color: rgba(198, 41, 23, 0.9); color: white; padding: 5px; font-size: 11px; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.15); display: flex; flex-direction: column; justify-content: space-between; overflow: hidden; pointer-events: auto; z-index: 10; line-height: 1.2; }
+        .schedule-card .delete-btn { align-self: flex-end; background: none; border: none; color: white; cursor: pointer; font-weight: bold; font-size: 14px; padding: 2px 5px; }
         
         /* 시간 미지정 과목 리스트 */
-        #no-time-container { margin-top: 20px; background: white; border: 1px solid #ddd; padding: 15px; border-radius: 4px; }
-        #no-time-list { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
+        #no-time-container { margin-top: 20px; background: white; border: 1px solid #ddd; padding: 15px; border-radius: 4px; min-width: 300px; }
+        #no-time-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
         .no-time-item { background: #eee; padding: 8px 12px; border-radius: 20px; font-size: 13px; display: flex; align-items: center; gap: 8px; }
-        .no-time-delete { border: none; background: transparent; color: #888; cursor: pointer; font-weight: bold; }
+        .no-time-delete { border: none; background: transparent; color: #888; cursor: pointer; font-weight: bold; font-size: 16px; padding: 0 4px; }
+
+        /* 모바일 전용 미디어 쿼리 (화면 너비가 768px 이하일 때 적용) */
+        @media (max-width: 768px) {
+            body { flex-direction: column; padding: 0; }
+            
+            /* 상단: 과목 리스트 */
+            #sidebar { width: 100%; height: 45vh; border-right: none; border-bottom: 2px solid #ddd; padding: 15px 15px 5px 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+            
+            /* 하단: 시간표 (좌우 스크롤 가능) */
+            #timetable-container { width: 100%; height: 55vh; padding: 15px; }
+            h2 { font-size: 16px; margin-bottom: 8px; }
+            
+            /* 모바일에서 카드 글씨 최적화 */
+            .schedule-card { font-size: 10px; padding: 4px; }
+        }
     </style>
 </head>
 <body>
 
     <div id="sidebar">
-        <h2>전기전자 공학 과목 목록</h2>
+        <h2>과목 목록</h2>
         <input type="text" id="search" placeholder="과목명 또는 교수명 검색...">
         
         <div id="grade-filter-container">
@@ -62,7 +80,9 @@
 
     <div id="timetable-container">
         <h2>나의 시간표</h2>
-        <div id="timetable"></div>
+        <div id="timetable-wrapper">
+            <div id="timetable"></div>
+        </div>
         
         <div id="no-time-container">
             <strong>이러닝 / 시간 미지정 과목</strong>
@@ -71,7 +91,6 @@
     </div>
 
     <script>
-        // 원본 텍스트 데이터 파싱
         const rawData = `EEC1100-1	전공이해 및 실습 1	박재현		
 EEC2100-1	기초실험 1	김미나		
 EEC2101-1	기초실험 2	이상민		
@@ -204,20 +223,17 @@ EEC4700-1	신재생에너지	이석현	화 15:00~16:30	목 15:00~16:30
 EEC4704-1	전기응용	신영균		
 EEC4708-1	에너지변환용 대형 전력시스템의 이해	김인수		`;
 
-        // 요일 및 시간 매핑을 위한 설정
         const days = ['월', '화', '수', '목', '금'];
         const startHour = 9;
         const endHour = 23; 
         const totalHours = endHour - startHour;
 
-        // 데이터 객체 배열로 변환
         const courses = rawData.trim().split('\n').map((line, index) => {
             const tokens = line.split('\t').map(t => t.trim());
             const id = tokens[0];
             const name = tokens[1];
             const professor = tokens[2];
             
-            // 시간 파트 추출 (3번째 토큰 이후 존재하는 값들 조합)
             const rawTimes = tokens.slice(3).filter(t => t.length > 0).join(', ');
             const times = [];
             
@@ -242,16 +258,13 @@ EEC4708-1	에너지변환용 대형 전력시스템의 이해	김인수		`;
             return { dbId: index, id, name, professor, times, timeStr: rawTimes || '시간 미지정' };
         });
 
-        // 현재 선택된 과목 관리 (시간 겹침 체크용)
         let selectedCourses = [];
 
-        // DOM 요소 
         const courseListEl = document.getElementById('course-list');
         const timetableEl = document.getElementById('timetable');
         const searchInput = document.getElementById('search');
         const noTimeListEl = document.getElementById('no-time-list');
 
-        // 기본 시간표 격자 생성
         function initTimetableGrid() {
             timetableEl.innerHTML = '';
             timetableEl.appendChild(createCell('', 'header-cell'));
@@ -299,21 +312,14 @@ EEC4708-1	에너지변환용 대형 전력시스템의 이해	김인수		`;
             return null;
         }
 
-        // 과목 목록 렌더링 (검색어 + 학년 체크박스 필터링 적용)
         function renderCourseList(filterText = '') {
             courseListEl.innerHTML = '';
-            
-            // 활성화된(체크된) 학년 번호 리스트 추출 (예: ['1', '2'])
             const checkedGrades = Array.from(document.querySelectorAll('.grade-filter:checked')).map(cb => cb.value);
 
             const filtered = courses.filter(c => {
-                // 1. 검색어 일치 여부 (학수번호, 과목명, 교수명)
                 const matchesSearch = c.name.includes(filterText) || c.professor.includes(filterText) || c.id.includes(filterText);
-                
-                // 2. 학년 필터 일치 여부 (학수번호 4번째 글자 'EECX'에서 X 추출)
                 const courseGrade = c.id.charAt(3);
                 const matchesGrade = checkedGrades.includes(courseGrade);
-
                 return matchesSearch && matchesGrade;
             });
 
@@ -350,7 +356,6 @@ EEC4708-1	에너지변환용 대형 전력시스템의 이해	김인수		`;
             renderCourseList(searchInput.value);
         }
 
-        document.getElementById('search') // 오타 정정 용도
         function removeCourse(dbId) {
             selectedCourses = selectedCourses.filter(sc => sc.dbId !== dbId);
             updateTimetableVisuals();
@@ -361,7 +366,6 @@ EEC4708-1	에너지변환용 대형 전력시스템의 이해	김인수		`;
             noTimeListEl.innerHTML = '';
             document.querySelectorAll('.schedule-card').forEach(el => el.remove());
 
-            const baseRect = timetableEl.getBoundingClientRect();
             const headerCell = timetableEl.children[1].getBoundingClientRect(); 
             const hourCell1 = timetableEl.children[6].getBoundingClientRect(); 
             const hourCell2 = timetableEl.children[12].getBoundingClientRect(); 
@@ -392,7 +396,9 @@ EEC4708-1	에너지변환용 대형 전력시스템의 이해	김인수		`;
 
                     const topOffset = ((startMin - baseMin) / 30) * halfHourHeight + 40; 
                     const cardHeight = ((endMin - startMin) / 30) * halfHourHeight;
-                    const leftOffset = 60 + dayIndex * columnWidth; 
+                    // 시간 컬럼 너비 50px 고려 (모바일/데스크탑 CSS 매칭)
+                    const timeColWidth = timetableEl.children[0].getBoundingClientRect().width;
+                    const leftOffset = timeColWidth + dayIndex * columnWidth; 
 
                     const card = document.createElement('div');
                     card.className = 'schedule-card';
@@ -405,7 +411,7 @@ EEC4708-1	에너지변환용 대형 전력시스템의 이해	김인수		`;
                         <button class="delete-btn">×</button>
                         <div>
                             <strong>${course.name}</strong><br>
-                            <span style="font-size:11px; opacity:0.9;">${course.professor}</span>
+                            <span style="font-size:inherit; opacity:0.9;">${course.professor}</span>
                         </div>
                         <div></div>
                     `;
@@ -420,21 +426,21 @@ EEC4708-1	에너지변환용 대형 전력시스템의 이해	김인수		`;
             });
         }
 
-        // 검색어 입력 이벤트 리스너
         searchInput.addEventListener('input', (e) => {
             renderCourseList(e.target.value);
         });
 
-        // 학년 체크박스 상태 변경 이벤트 리스너들 일괄 등록
         document.querySelectorAll('.grade-filter').forEach(checkbox => {
             checkbox.addEventListener('change', () => {
                 renderCourseList(searchInput.value);
             });
         });
 
-        window.addEventListener('resize', updateTimetableVisuals);
+        window.addEventListener('resize', () => {
+            // 레이아웃이 다시 계산될 시간을 주기 위해 약간의 지연 후 위치 재계산
+            setTimeout(updateTimetableVisuals, 100);
+        });
 
-        // 초기 실행
         initTimetableGrid();
         renderCourseList();
     </script>
