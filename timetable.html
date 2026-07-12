@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>26-2 인하대 전기전자공학부 시간표</title>
+    <style>
+        * { box-sizing: border-box; font-family: 'Malgun Gothic', sans-serif; }
+        body { display: flex; margin: 0; padding: 20px; background-color: #f9f9f9; height: 100vh; overflow: hidden; }
+        
+        /* 왼쪽 과목 목록 구역 */
+        #sidebar { width: 400px; background: white; border-right: 1px solid #ddd; padding: 15px; display: flex; flex-direction: column; height: 100%; box-shadow: 2px 0 5px rgba(0,0,0,0.05); }
+        h2 { margin-top: 0; color: #c62917; font-size: 20px; border-bottom: 2px solid #c62917; padding-bottom: 10px; }
+        #search { padding: 10px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 4px; width: 100%; }
+        
+        /* 학년 필터 스타일 */
+        #grade-filter-container { margin-bottom: 15px; display: flex; gap: 12px; flex-wrap: wrap; padding: 2px; }
+        #grade-filter-container label { font-size: 13px; color: #444; cursor: pointer; display: flex; align-items: center; gap: 4px; user-select: none; }
+        #grade-filter-container input[type="checkbox"] { cursor: pointer; }
+
+        #course-list { flex: 1; overflow-y: auto; }
+        .course-item { padding: 12px; border-bottom: 1px solid #eee; cursor: pointer; transition: background 0.2s; }
+        .course-item:hover { background-color: #f5f5f5; }
+        .course-item.selected { background-color: #ffeaea; border-left: 4px solid #c62917; }
+        .course-id { font-size: 12px; color: #888; }
+        .course-name { font-weight: bold; font-size: 15px; color: #333; margin: 3px 0; }
+        .course-info { font-size: 13px; color: #565656; }
+        
+        /* 오른쪽 시간표 구역 */
+        #timetable-container { flex: 1; padding: 0 20px; display: flex; flex-direction: column; height: 100%; overflow-y: auto; }
+        #timetable { display: grid; grid-template-columns: 60px repeat(5, 1fr); border-top: 1px solid #ddd; border-left: 1px solid #ddd; background: white; position: relative; }
+        .cell { border-right: 1px solid #ddd; border-bottom: 1px solid #ddd; min-height: 40px; display: flex; align-items: center; justify-content: center; font-size: 12px; color: #666; }
+        .header-cell { background-color: #f1f1f1; font-weight: bold; color: #333; height: 40px; }
+        .time-cell { background-color: #f9f9f9; font-weight: bold; font-size: 11px; }
+        
+        /* 시간표 위에 배치되는 절대 위치 카드 */
+        .schedule-card { position: absolute; background-color: rgba(198, 41, 23, 0.85); color: white; padding: 5px; font-size: 12px; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display: flex; flex-direction: column; justify-content: space-between; overflow: hidden; pointer-events: auto; z-index: 10; }
+        .schedule-card .delete-btn { align-self: flex-end; background: none; border: none; color: white; cursor: pointer; font-weight: bold; font-size: 11px; padding: 0 2px; }
+        
+        /* 시간 미지정 과목 리스트 */
+        #no-time-container { margin-top: 20px; background: white; border: 1px solid #ddd; padding: 15px; border-radius: 4px; }
+        #no-time-list { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
+        .no-time-item { background: #eee; padding: 8px 12px; border-radius: 20px; font-size: 13px; display: flex; align-items: center; gap: 8px; }
+        .no-time-delete { border: none; background: transparent; color: #888; cursor: pointer; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <div id="sidebar">
+        <h2>전기전자 공학 과목 목록</h2>
+        <input type="text" id="search" placeholder="과목명 또는 교수명 검색...">
+        
+        <div id="grade-filter-container">
+            <label><input type="checkbox" class="grade-filter" value="1" checked> 1학년</label>
+            <label><input type="checkbox" class="grade-filter" value="2" checked> 2학년</label>
+            <label><input type="checkbox" class="grade-filter" value="3" checked> 3학년</label>
+            <label><input type="checkbox" class="grade-filter" value="4" checked> 4학년</label>
+        </div>
+
+        <div id="course-list"></div>
+    </div>
+
+    <div id="timetable-container">
+        <h2>나의 시간표</h2>
+        <div id="timetable"></div>
+        
+        <div id="no-time-container">
+            <strong>이러닝 / 시간 미지정 과목</strong>
+            <div id="no-time-list"></div>
+        </div>
+    </div>
+
+    <script>
+        // 원본 텍스트 데이터 파싱
+        const rawData = `EEC1100-1	전공이해 및 실습 1	박재현		
+EEC2100-1	기초실험 1	김미나		
+EEC2101-1	기초실험 2	이상민		
+EEC2101-2	기초실험 2	이영택		
+EEC2101-3	기초실험 2	이영택		
+EEC2101-4	기초실험 2	서영교		
+EEC2101-5	기초실험 2	서영교		
+EEC2101-6	기초실험 2	서영교		
+EEC2101-7	기초실험 2	이영우		
+EEC2101-8	기초실험 2	이영우		
+EEC2101-9	기초실험 2	이상곤	월 09:00~11:00	
+EEC2101-10	기초실험 2	이상곤		
+EEC2101-11	기초실험 2	이상곤		
+EEC2101-12	기초실험 2	이상곤		
+EEC2101-13	기초실험 2	이상곤		
+EEC2101-14	기초실험 2	이상곤		
+EEC2101-15	기초실험 2	김상균		
+EEC2101-16	기초실험 2	김상균		
+EEC2101-17	기초실험 2	김상균		
+EEC2101-18	기초실험 2	김상균		
+EEC2101-19	기초실험 2	김미나		
+EEC2101-20	기초실험 2	김미나		
+EEC2102-1	회로이론 1	신영균		
+EEC2104-1	전자기학 1	신백균		
+EEC2106-1	디지털논리회로	박재현		
+EEC2108-1	전자회로 1	변경수		
+EEC2108-2	전자회로 1	서영교		
+EEC2108-3	전자회로 1	김태인		
+EEC2108-4	전자회로 1	전재훈	월 10:30~12:00	수 10:30~12:00
+EEC2108-5	전자회로 1	박인호	월 10:30~12:00	수 10:30~12:00
+EEC2108-6	전자회로 1	금대명		
+EEC2108-7	전자회로 1	조혜상	월 10:30~12:00	수 10:30~12:00
+EEC2108-8	전자회로 1	박용재		
+EEC2200-1	객체지향프로그래밍	김덕환	화 15:00~17:00	목 15:00~17:00
+EEC2200-2	객체지향프로그래밍	최학남	화 09:00~11:00	목 09:00~11:00
+EEC2204-1	전자기학 2	오범환	월 10:30~12:00	수 10:30~12:00
+EEC2204-2	전자기학 2	박우상		
+EEC2204-3	전자기학 2	신백균		
+EEC2204-4	전자기학 2	이지호		
+EEC2206-1	전기전자물성	이천		
+EEC2206-2	전기전자물성	이영택		
+EEC2206-3	전기전자물성	강지훈	월 13:30~15:00	수 13:30~15:00
+EEC2206-4	전기전자물성	금대명		
+EEC2206-5	전기전자물성	이태수		
+EEC2208-1	자료구조론	김유성		
+EEC2208-2	자료구조론	이용우		
+EEC3200-1	전기전자회로응용실험	김재국	월 18:00~20:00	
+EEC3200-2	전기전자회로응용실험	김재국	화 18:00~20:00	
+EEC3200-3	전기전자회로응용실험	김재국	수 18:00~20:00	
+EEC3202-1	신호 및 시스템	유상조	화 09:00~10:30	목 09:00~10:30
+EEC3202-2	신호 및 시스템	정민오		
+EEC3204-1	자동제어	김광기	월 09:00~10:30	수 09:00~10:30
+EEC3208-1	전력시스템공학	김현진		
+EEC3210-1	확률변수	정재학		
+EEC3210-2	확률변수	송병철	화 13:30~15:00	목 13:30~15:00
+EEC3210-3	확률변수	이보원		
+EEC3210-4	확률변수	원종훈	화 13:30~15:00	목 13:30~15:00
+EEC3210-5	확률변수	임홍기		
+EEC3210-6	확률변수	이종호		
+EEC3305-1	반도체소자 2	장성필	월 15:00~16:30	수 15:00~16:30
+EEC3305-2	반도체소자 2	이영택		
+EEC3305-3	반도체소자 2	김태인		
+EEC3306-1	디지털 집적회로설계	이한호		
+EEC3306-2	디지털 집적회로설계	서영교		
+EEC3308-1	아날로그 집적회로설계	변경수		
+EEC3308-2	아날로그 집적회로설계	전재훈	월 15:00~16:30	수 15:00~18:30
+EEC3308-3	아날로그 집적회로설계	박인호	월 13:30~15:00	수 13:30~15:00, 수 16:30~18:30
+EEC3400-1	기계학습개론	김유성		
+EEC3402-1	컴퓨터구조론	정민오		
+EEC3404-1	디지털신호처리	송병철	화 15:00~16:30	목 15:00~16:30
+EEC3404-2	디지털신호처리	이보원		
+EEC3404-3	디지털신호처리	이종호		
+EEC3410-1	Java프로그래밍	허혜선	수 15:00~17:00	금 10:30~12:30
+EEC3412-1	컴퓨터네트워크	유상조	화 13:30~15:00	목 13:30~15:00
+EEC3412-2	컴퓨터네트워크	신영균		
+EEC3502-1	통신시스템	김덕경		
+EEC3502-2	통신시스템	박대영	금 15:00~18:00	
+EEC3508-1	광반도체 입문	오범환	월 15:00~16:30	수 15:00~16:30
+EEC3602-1	전기전자계측	김대유	월 13:30~15:00	수 13:30~15:00
+EEC3604-1	마이크로콘트롤러응용실험	이영삼		
+EEC3604-2	마이크로콘트롤러응용실험	이영삼		
+EEC3604-3	마이크로콘트롤러응용실험	이영삼		
+EEC3608-1	바이오메디컬공학	이상민		
+EEC3610-1	제어시스템설계	이영삼		
+EEC3610-2	제어시스템설계	이지호		
+EEC3612-1	임베디드시스템 설계	이영삼		
+EEC3612-2	임베디드시스템 설계	김덕환	화 12:00~13:30	목 12:00~13:30
+EEC3614-1	로봇신호처리	조영근		
+EEC3700-1	전력시스템 운영 및 제어	원동준		
+EEC3700-2	전력시스템 운영 및 제어	김인수		
+EEC3700-3	전력시스템 운영 및 제어	김인수		
+EEC4100-1	전기전자 종합설계	김광기	화 20:00~23:00	
+EEC4100-2	전기전자 종합설계	김대유	월 20:00~23:00	
+EEC4100-3	전기전자 종합설계	김태인		
+EEC4100-4	전기전자 종합설계	김현진		
+EEC4100-5	전기전자 종합설계	문희승		
+EEC4100-6	전기전자 종합설계	서영교		
+EEC4100-7	전기전자 종합설계	송병철	목 20:00~23:00	
+EEC4100-8	전기전자 종합설계	안남혁		
+EEC4100-9	전기전자 종합설계	원동준		
+EEC4100-10	전기전자 종합설계	원종훈	월 20:00~23:00	
+EEC4100-11	전기전자 종합설계	이상민		
+EEC4100-12	전기전자 종합설계	이영택		
+EEC4100-13	전기전자 종합설계	이용우		
+EEC4100-14	전기전자 종합설계	이태수		
+EEC4100-15	전기전자 종합설계	임홍기		
+EEC4100-16	전기전자 종합설계	조혜상	목 20:00~23:00	
+EEC4100-17	전기전자 종합설계	이영우		
+EEC4100-18	전기전자 종합설계	이한호		
+EEC4300-1	전자디스플레이	신백균		
+EEC4300-2	전자디스플레이	신백균		
+EEC4300-3	전자디스플레이	이태수		
+EEC4304-1	혼성신호 집적회로설계	박인호	화 13:30~15:00	목 13:30~15:00
+EEC4306-1	반도체소자공정	이영택		
+EEC4310-1	MEMS 개요	장성필	월 16:30~18:00	수 16:30~18:00
+EEC4314-1	광전자공학	이태수		
+EEC4402-1	컴퓨터비전	박인규		
+EEC4406-1	오퍼레이팅시스템	김기창		
+EEC4410-1	멀티미디어	안남혁		
+EEC4412-1	정보보호론	이용우		
+EEC4412-2	정보보호론	이용우		
+EEC4414-1	심층신경망	임홍기		
+EEC4414-2	심층신경망	안남혁		
+EEC4508-1	이동통신	김덕경		
+EEC4508-2	이동통신	장경희		
+EEC4508-3	이동통신	김덕경		
+EEC4510-1	무선통신네트워크	정재학		
+EEC4510-2	무선통신네트워크	정재학		
+EEC4700-1	신재생에너지	이석현	화 15:00~16:30	목 15:00~16:30
+EEC4704-1	전기응용	신영균		
+EEC4708-1	에너지변환용 대형 전력시스템의 이해	김인수		`;
+
+        // 요일 및 시간 매핑을 위한 설정
+        const days = ['월', '화', '수', '목', '금'];
+        const startHour = 9;
+        const endHour = 23; 
+        const totalHours = endHour - startHour;
+
+        // 데이터 객체 배열로 변환
+        const courses = rawData.trim().split('\n').map((line, index) => {
+            const tokens = line.split('\t').map(t => t.trim());
+            const id = tokens[0];
+            const name = tokens[1];
+            const professor = tokens[2];
+            
+            // 시간 파트 추출 (3번째 토큰 이후 존재하는 값들 조합)
+            const rawTimes = tokens.slice(3).filter(t => t.length > 0).join(', ');
+            const times = [];
+            
+            if (rawTimes) {
+                const timeMatches = rawTimes.split(/[\s,]+/);
+                let currentDay = '';
+                
+                timeMatches.forEach(token => {
+                    if (days.includes(token)) {
+                        currentDay = token;
+                    } else if (token.includes('~')) {
+                        const [start, end] = token.split('~');
+                        times.push({ day: currentDay, start, end });
+                    } else if (token.length > 1 && days.includes(token[0]) && token.includes('~')) {
+                        const day = token[0];
+                        const [start, end] = token.slice(1).split('~');
+                        times.push({ day, start, end });
+                    }
+                });
+            }
+
+            return { dbId: index, id, name, professor, times, timeStr: rawTimes || '시간 미지정' };
+        });
+
+        // 현재 선택된 과목 관리 (시간 겹침 체크용)
+        let selectedCourses = [];
+
+        // DOM 요소 
+        const courseListEl = document.getElementById('course-list');
+        const timetableEl = document.getElementById('timetable');
+        const searchInput = document.getElementById('search');
+        const noTimeListEl = document.getElementById('no-time-list');
+
+        // 기본 시간표 격자 생성
+        function initTimetableGrid() {
+            timetableEl.innerHTML = '';
+            timetableEl.appendChild(createCell('', 'header-cell'));
+            days.forEach(day => timetableEl.appendChild(createCell(day, 'header-cell')));
+
+            for (let h = startHour; h < endHour; h++) {
+                timetableEl.appendChild(createCell(`${h}:00`, 'time-cell'));
+                for(let d=0; d<5; d++) timetableEl.appendChild(createCell('', ''));
+                timetableEl.appendChild(createCell(`${h}:30`, 'time-cell'));
+                for(let d=0; d<5; d++) timetableEl.appendChild(createCell('', ''));
+            }
+        }
+
+        function createCell(text, className) {
+            const cell = document.createElement('div');
+            cell.className = `cell ${className}`;
+            cell.innerText = text;
+            return cell;
+        }
+
+        function timeToMinutes(timeStr) {
+            const [h, m] = timeStr.split(':').map(Number);
+            return h * 60 + m;
+        }
+
+        function isOverlapping(newCourse) {
+            if (newCourse.times.length === 0) return false;
+            
+            for (const enrolled of selectedCourses) {
+                for (const t1 of enrolled.times) {
+                    for (const t2 of newCourse.times) {
+                        if (t1.day === t2.day) {
+                            const start1 = timeToMinutes(t1.start);
+                            const end1 = timeToMinutes(t1.end);
+                            const start2 = timeToMinutes(t2.start);
+                            const end2 = timeToMinutes(t2.end);
+                            
+                            if (start1 < end2 && start2 < end1) {
+                                return enrolled.name;
+                            }
+                        }
+                    }
+                }
+            }
+            return null;
+        }
+
+        // 과목 목록 렌더링 (검색어 + 학년 체크박스 필터링 적용)
+        function renderCourseList(filterText = '') {
+            courseListEl.innerHTML = '';
+            
+            // 활성화된(체크된) 학년 번호 리스트 추출 (예: ['1', '2'])
+            const checkedGrades = Array.from(document.querySelectorAll('.grade-filter:checked')).map(cb => cb.value);
+
+            const filtered = courses.filter(c => {
+                // 1. 검색어 일치 여부 (학수번호, 과목명, 교수명)
+                const matchesSearch = c.name.includes(filterText) || c.professor.includes(filterText) || c.id.includes(filterText);
+                
+                // 2. 학년 필터 일치 여부 (학수번호 4번째 글자 'EECX'에서 X 추출)
+                const courseGrade = c.id.charAt(3);
+                const matchesGrade = checkedGrades.includes(courseGrade);
+
+                return matchesSearch && matchesGrade;
+            });
+
+            filtered.forEach(course => {
+                const item = document.createElement('div');
+                const isEnrolled = selectedCourses.some(sc => sc.dbId === course.dbId);
+                item.className = `course-item ${isEnrolled ? 'selected' : ''}`;
+                
+                item.innerHTML = `
+                    <div class="course-id">${course.id}</div>
+                    <div class="course-name">${course.name}</div>
+                    <div class="course-info">${course.professor} | ${course.timeStr}</div>
+                `;
+
+                item.addEventListener('click', () => {
+                    if (isEnrolled) {
+                        removeCourse(course.dbId);
+                    } else {
+                        addCourse(course);
+                    }
+                });
+                courseListEl.appendChild(item);
+            });
+        }
+
+        function addCourse(course) {
+            const overlapTarget = isOverlapping(course);
+            if (overlapTarget) {
+                alert(`⚠️ 시간이 겹칩니다!\n현재 등록된 [${overlapTarget}] 과목과 겹치는 시간대입니다.`);
+                return;
+            }
+            selectedCourses.push(course);
+            updateTimetableVisuals();
+            renderCourseList(searchInput.value);
+        }
+
+        document.getElementById('search') // 오타 정정 용도
+        function removeCourse(dbId) {
+            selectedCourses = selectedCourses.filter(sc => sc.dbId !== dbId);
+            updateTimetableVisuals();
+            renderCourseList(searchInput.value);
+        }
+
+        function updateTimetableVisuals() {
+            noTimeListEl.innerHTML = '';
+            document.querySelectorAll('.schedule-card').forEach(el => el.remove());
+
+            const baseRect = timetableEl.getBoundingClientRect();
+            const headerCell = timetableEl.children[1].getBoundingClientRect(); 
+            const hourCell1 = timetableEl.children[6].getBoundingClientRect(); 
+            const hourCell2 = timetableEl.children[12].getBoundingClientRect(); 
+            
+            const halfHourHeight = hourCell2.top - hourCell1.top;
+            const columnWidth = headerCell.width;
+
+            selectedCourses.forEach(course => {
+                if (course.times.length === 0) {
+                    const noTimeItem = document.createElement('div');
+                    noTimeItem.className = 'no-time-item';
+                    noTimeItem.innerHTML = `
+                        <span>${course.name} (${course.professor})</span>
+                        <button class="no-time-delete">×</button>
+                    `;
+                    noTimeItem.querySelector('.no-time-delete').addEventListener('click', () => removeCourse(course.dbId));
+                    noTimeListEl.appendChild(noTimeItem);
+                    return;
+                }
+
+                course.times.forEach(t => {
+                    const dayIndex = days.indexOf(t.day);
+                    if (dayIndex === -1) return;
+
+                    const startMin = timeToMinutes(t.start);
+                    const endMin = timeToMinutes(t.end);
+                    const baseMin = startHour * 60;
+
+                    const topOffset = ((startMin - baseMin) / 30) * halfHourHeight + 40; 
+                    const cardHeight = ((endMin - startMin) / 30) * halfHourHeight;
+                    const leftOffset = 60 + dayIndex * columnWidth; 
+
+                    const card = document.createElement('div');
+                    card.className = 'schedule-card';
+                    card.style.top = `${topOffset}px`;
+                    card.style.left = `${leftOffset}px`;
+                    card.style.width = `${columnWidth}px`;
+                    card.style.height = `${cardHeight}px`;
+
+                    card.innerHTML = `
+                        <button class="delete-btn">×</button>
+                        <div>
+                            <strong>${course.name}</strong><br>
+                            <span style="font-size:11px; opacity:0.9;">${course.professor}</span>
+                        </div>
+                        <div></div>
+                    `;
+
+                    card.querySelector('.delete-btn').addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        removeCourse(course.dbId);
+                    });
+
+                    timetableEl.appendChild(card);
+                });
+            });
+        }
+
+        // 검색어 입력 이벤트 리스너
+        searchInput.addEventListener('input', (e) => {
+            renderCourseList(e.target.value);
+        });
+
+        // 학년 체크박스 상태 변경 이벤트 리스너들 일괄 등록
+        document.querySelectorAll('.grade-filter').forEach(checkbox => {
+            checkbox.addEventListener('change', () => {
+                renderCourseList(searchInput.value);
+            });
+        });
+
+        window.addEventListener('resize', updateTimetableVisuals);
+
+        // 초기 실행
+        initTimetableGrid();
+        renderCourseList();
+    </script>
+</body>
+</html>
